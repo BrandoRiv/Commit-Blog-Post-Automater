@@ -1,0 +1,49 @@
+@using System.Net.Http
+@using System.Net.Http.Json
+@using System.Linq
+@inject HttpClient Http
+@code {
+    [Parameter]
+    public string? RepoPath { get; set; }
+
+    private string commitMessage = "Loading...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(RepoPath))
+        {
+            commitMessage = "Repository path not provided.";
+            return;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, 
+            $"https://api.github.com/repos/{RepoPath}/commits");
+        request.Headers.Add("User-Agent", "PostAutomater");
+
+        var response = await Http.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var commits = await response.Content.ReadFromJsonAsync<List<GitHubCommit>>();
+            commitMessage = commits?.FirstOrDefault()?.Commit?.Message ?? "No commit message available";
+        }
+        else
+        {
+            commitMessage = $"Error fetching commit data: {response.StatusCode}";
+        }
+    }
+
+    public class GitHubCommit
+    {
+        public Commit? Commit { get; set; }
+    }
+
+    public class Commit
+    {
+        public string? Message { get; set; }
+    }
+}
+
+<div>
+    <h3>Latest Commit Message:</h3>
+    <p>@commitMessage</p>
+</div>
